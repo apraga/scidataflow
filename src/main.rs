@@ -216,8 +216,11 @@ enum Commands {
         /// Pull in files from remotes and URLs.
         #[arg(long)]
         all: bool,
-        // multiple optional directories
-        //directories: Vec<PathBuf>,
+
+        /// Pull in only a single file
+        #[arg(short, long, value_name = "FILE")]
+        local: Option<String>,
+
     },
     /// Change the project metadata.
     Metadata {
@@ -343,9 +346,10 @@ async fn run() -> Result<()> {
             overwrite,
             urls,
             all,
+            local,
         }) => {
             let mut proj = Project::new()?;
-            proj.pull(*overwrite, *urls, *all).await
+            proj.pull(*overwrite, *urls, *all, local).await
         }
         Some(Commands::Metadata { title, description }) => {
             let mut proj = Project::new()?;
