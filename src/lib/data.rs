@@ -1095,14 +1095,24 @@ impl DataCollection {
         Ok(())
     }
 
+    fn filter_merged(all_files: &mut HashMap<String, HashMap<String, MergedFile>> , local: &PathBuf) -> Result<()> {
+        // Exact match on directory or the full path to a file
+        let p = local.display().to_string();
+        // For a directory, match all files
+        if local.is_dir() {
+            println!("is dir");
+            all_files.retain(|k, v| *k == p); // || v.iter().any(|(k1,_)| k1 == matching ));
+        }
+        Ok(())
+    }
     // Download all files, or a set of matching files
     //
     // TODO: code redundancy with the push method's tracking of
     // why stuff is skipped; split out info enum, etc.
-    pub async fn pull(&mut self, path_context: &Path, overwrite: bool, local: &Option<String>) -> Result<()> {
+    pub async fn pull(&mut self, path_context: &Path, overwrite: bool, local: &Option<PathBuf>) -> Result<()> {
         let mut all_files = self.merge(true).await?;
         if let Some(matching) = local {
-            all_files.retain(|_, v| v.iter().any(|(k1,_)| k1.contains(matching)));
+            Self::filter_merged(&mut all_files, &matching)?;
             if all_files.len() == 0 {
                 return Err(anyhow!("No files matching {:?}", matching));
             }

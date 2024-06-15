@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
@@ -219,7 +219,7 @@ enum Commands {
 
         /// Pull in only a single file
         #[arg(short, long, value_name = "FILE")]
-        local: Option<String>,
+        local: Option<PathBuf>,
 
     },
     /// Change the project metadata.

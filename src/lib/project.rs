@@ -634,7 +634,7 @@ impl Project {
         self.save()
     }
 
-    pub async fn pull(&mut self, overwrite: bool, url: bool, all: bool, local: &Option<String>) -> Result<()> {
+    pub async fn pull(&mut self, overwrite: bool, url: bool, all: bool, local: &Option<PathBuf>) -> Result<()> {
         let path_context = self.path_context();
         if all {
             self.data.pull_urls(&path_context, overwrite).await?;
