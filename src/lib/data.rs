@@ -397,11 +397,11 @@ impl DataFile {
     pub fn directory(&self) -> Result<String> {
         let path = std::path::Path::new(&self.path);
         Ok(path
-            .parent()
-            .unwrap_or(path)
-            .to_str()
-            .unwrap_or("")
-            .to_string())
+           .parent()
+           .unwrap_or(path)
+           .to_str()
+           .unwrap_or("")
+           .to_string())
     }
 
     pub async fn get_md5(&self, path_context: &Path) -> Result<Option<String>> {
@@ -587,7 +587,7 @@ impl DataCollection {
         } else {
             Err(anyhow!(
                 "File '{}' is already registered in the data manifest.\n\
-                        If you wish to update the MD5 or metadata, use: sdf update FILE",
+                 If you wish to update the MD5 or metadata, use: sdf update FILE",
                 &data_file.path
             ))
         }
@@ -719,7 +719,7 @@ impl DataCollection {
         match data_file {
             None => Err(anyhow!(
                 "Data file '{}' is not in the data manifest. Add it first using:\n \
-                                $ sdf track {}\n",
+                 $ sdf track {}\n",
                 filepath,
                 filepath
             )),
@@ -742,7 +742,7 @@ impl DataCollection {
         match data_file {
             None => Err(anyhow!(
                 "Cannot untrack data file '{}' since it was never added to\
-                                the data manifest.",
+                 the data manifest.",
                 filepath
             )),
             Some(file) => file.set_untracked(),
@@ -794,7 +794,7 @@ impl DataCollection {
             match result {
                 Ok((key, value)) => {
                     pb.bar
-                        .set_message(format!("Fetching remote files...   {} done.", key.0));
+                      .set_message(format!("Fetching remote files...   {} done.", key.0));
                     all_remote_files.insert(key, value);
                     pb.bar.inc(1);
                 }
@@ -913,7 +913,7 @@ impl DataCollection {
         while let Some(result) = statuses_futures.next().await {
             if let Ok((key, value)) = result {
                 pb.bar
-                    .set_message(format!("Calculating MD5s... {} done.", &value.name));
+                  .set_message(format!("Calculating MD5s... {} done.", &value.name));
                 statuses.entry(key).or_insert_with(Vec::new).push(value);
                 pb.bar.inc(1);
             } else {
@@ -1064,6 +1064,7 @@ impl DataCollection {
         let mut filepaths = Vec::new();
         let mut skipped = Vec::new();
         let mut num_downloaded = 0;
+        println!("{:?}", self.files.values());
         for data_file in self.files.values() {
             if let Some(url) = &data_file.url {
                 let full_path = data_file.full_path(path_context)?;
@@ -1088,18 +1089,25 @@ impl DataCollection {
         let num_skipped = skipped.len();
         println!(
             "{} files were downloaded.\n\
-                  {} files were skipped because they existed (and --overwrite was not specified).",
+             {} files were skipped because they existed (and --overwrite was not specified).",
             num_downloaded, num_skipped
         );
         Ok(())
     }
 
-    // Download all files
+    // Download all files, or a set of matching files
     //
     // TODO: code redundancy with the push method's tracking of
     // why stuff is skipped; split out info enum, etc.
-    pub async fn pull(&mut self, path_context: &Path, overwrite: bool) -> Result<()> {
-        let all_files = self.merge(true).await?;
+    pub async fn pull(&mut self, path_context: &Path, overwrite: bool, local: &Option<String>) -> Result<()> {
+        let mut all_files = self.merge(true).await?;
+        if let Some(matching) = local {
+            all_files.retain(|_, v| v.iter().any(|(k1,_)| k1.contains(matching)));
+            if all_files.len() == 0 {
+                return Err(anyhow!("No files matching {:?}", matching));
+            }
+        }
+        println!("{:?}", all_files);
 
         let mut downloads = Downloads::new();
 
@@ -1108,6 +1116,8 @@ impl DataCollection {
         let mut overwrite_skipped = Vec::new();
 
         for (dir, merged_files) in all_files.iter() {
+            // test.retain(|k, _| *k == "cities.csv");
+            // println!("FILTER {:?}", test);
             // can_download() is true only if local and remote are not None.
             // (local file can be deleted, but will only be None if not in manifest also)
             for merged_file in merged_files.values().filter(|f| f.can_download()) {
@@ -1116,7 +1126,7 @@ impl DataCollection {
                 let do_download = match merged_file.status(path_context).await? {
                     RemoteStatusCode::NoLocal => {
                         return Err(anyhow!("Internal error: execution should not have reached this point, please report.\n\
-                                           'sdf pull' filtered by MergedFile.can_download() but found a RemoteStatusCode::NoLocal status."));
+                                            'sdf pull' filtered by MergedFile.can_download() but found a RemoteStatusCode::NoLocal status."));
                     }
                     RemoteStatusCode::Current => {
                         current_skipped.push(path);
