@@ -217,10 +217,9 @@ enum Commands {
         #[arg(long)]
         all: bool,
 
-        /// Pull in only a single file
-        #[arg(short, long, value_name = "FILE")]
-        local: Option<PathBuf>,
-
+        /// Pull in matching file or directory
+        #[arg(short, long, value_name = "FILE/DIRECTORY")]
+        limit: Option<PathBuf>,
     },
     /// Change the project metadata.
     Metadata {
@@ -346,10 +345,10 @@ async fn run() -> Result<()> {
             overwrite,
             urls,
             all,
-            local,
+            limt,
         }) => {
             let mut proj = Project::new()?;
-            proj.pull(*overwrite, *urls, *all, local).await
+            proj.pull(*overwrite, *urls, *all, limit).await
         }
         Some(Commands::Metadata { title, description }) => {
             let mut proj = Project::new()?;

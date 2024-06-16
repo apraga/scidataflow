@@ -1083,14 +1083,14 @@ impl DataCollection {
         file.ancestors().filter(|x| !x.as_os_str().is_empty() && x == dir).count() > 0
     }
 
-    pub async fn pull_urls(&mut self, path_context: &Path, overwrite: bool, request: &Option<PathBuf>) -> Result<()> {
+    pub async fn pull_urls(&mut self, path_context: &Path, overwrite: bool, limit: &Option<PathBuf>) -> Result<()> {
         let mut downloads = Downloads::new();
         let mut filepaths = Vec::new();
         let mut skipped = Vec::new();
         let mut num_downloaded = 0;
         for data_file in self.files.values() {
             if let Some(url) = &data_file.url {
-                if !Self::match_user_file(&data_file.path, request) {
+                if !Self::match_user_file(&data_file.path, limit) {
                     continue;
                 }
                 let full_path = data_file.full_path(path_context)?;
@@ -1123,31 +1123,20 @@ impl DataCollection {
 
     async fn pull_get_downloads(&mut self, all_files: &HashMap<String, HashMap<String, MergedFile>>, path_context: &Path,
                                 overwrite: bool,
-                                local: &Option<PathBuf>,
+                                request: &Option<PathBuf>,
                                 current_skipped: &mut Vec<String>,
                                 messy_skipped: &mut Vec<String>,
                                 overwrite_skipped: &mut Vec<String>,
                                 downloads: &mut Downloads) -> Result<()> {
         for (dir, merged_files) in all_files.iter() {
-            // Skip non matching directories
-            let mut filtered = merged_files.clone();
-            if let Some(matching) = local {
-                // Try matching files first
-                if *dir != matching.display().to_string() {
-                    filtered.retain(|k, _| *k == matching.display().to_string());
-                    if filtered.len() == 0 {
-                        continue
-                    }
-                };
-            }
-            // Othewrise try directory
-
-            println!("filtered {:?}", filtered);
-            // can_download() is true only if local and remote are not None.
+            // 1. Skip non matching files if needed
+            // 2. can_download() is true only if local and remote are not None.
             // (local file can be deleted, but will only be None if not in manifest also)
-            for merged_file in filtered.values().filter(|f| f.can_download()) {
-
+            let filtered = merged_files.iter().filter(|(k,v)| Self::match_user_file(&k, request)
+                                                      && v.can_download());
+            for (_, merged_file) in filtered {
                 let path = merged_file.name()?;
+                println!("filtered {:?}", merged_file);
 
                 let do_download = match merged_file.status(path_context).await? {
                     RemoteStatusCode::NoLocal => {
@@ -1202,7 +1191,7 @@ impl DataCollection {
     //
     // TODO: code redundancy with the push method's tracking of
     // why stuff is skipped; split out info enum, etc.
-    pub async fn pull(&mut self, path_context: &Path, overwrite: bool, local: &Option<PathBuf>) -> Result<()> {
+    pub async fn pull(&mut self, path_context: &Path, overwrite: bool, limit: &Option<PathBuf>) -> Result<()> {
         let all_files = self.merge(true).await?;
 
         let mut current_skipped = Vec::new();
@@ -1210,7 +1199,8 @@ impl DataCollection {
         let mut overwrite_skipped = Vec::new();
 
         let mut downloads = Downloads::new();
-        self.pull_get_downloads(&all_files, path_context, overwrite, local, &mut current_skipped, &mut messy_skipped,
+        self.pull_get_downloads(&all_files, path_context, overwrite, limit,
+                                &mut current_skipped, &mut messy_skipped,
                                 &mut overwrite_skipped, &mut downloads).await?;
 
         // now retrieve all the files in the queue.
