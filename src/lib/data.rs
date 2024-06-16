@@ -1059,14 +1059,40 @@ impl DataCollection {
         Ok(())
     }
 
-    pub async fn pull_urls(&mut self, path_context: &Path, overwrite: bool) -> Result<()> {
+    // Compare a local path `local` to a user request `request` (either a path or a directory)
+    // - if request is a path, the full paths of both must match exactly
+    // - otherwise request is a directory and one of the ancestor must match
+    // Exemple
+    // - "a/test.txt" would not match "test.text" (first case)
+    // - "a/b/c/test.txt" would match "a/b/c" or "a/b"  (second case)
+    // - "a/b/c/test.txt" would not match "b/c"
+    fn match_user_file(local: &String, request: &Option<PathBuf>) -> bool {
+        let p = PathBuf::from(local);
+        if let Some(req) = request {
+            p == *req || Self::has_common_ancestor(p, req)
+        }
+        else {
+            false
+        }
+    }
+
+    // Common ancestor starting from root between a filepath and a directory
+    // - "a/b/c/test.txt" and "a/b/c" have one
+    // - "a/b/c/test.txt" and "b/c" and  don't
+    fn has_common_ancestor(file: PathBuf, dir: &PathBuf) -> bool {
+        file.ancestors().filter(|x| !x.as_os_str().is_empty() && x == dir).count() > 0
+    }
+
+    pub async fn pull_urls(&mut self, path_context: &Path, overwrite: bool, request: &Option<PathBuf>) -> Result<()> {
         let mut downloads = Downloads::new();
         let mut filepaths = Vec::new();
         let mut skipped = Vec::new();
         let mut num_downloaded = 0;
-        println!("{:?}", self.files.values());
         for data_file in self.files.values() {
             if let Some(url) = &data_file.url {
+                if !Self::match_user_file(&data_file.path, request) {
+                    continue;
+                }
                 let full_path = data_file.full_path(path_context)?;
                 let download =
                     downloads.add(url.clone(), Some(&full_path.to_string_lossy()), overwrite)?;
@@ -1108,7 +1134,7 @@ impl DataCollection {
             if let Some(matching) = local {
                 // Try matching files first
                 if *dir != matching.display().to_string() {
-                    filtered.retain(|k, v| *k == matching.display().to_string());
+                    filtered.retain(|k, _| *k == matching.display().to_string());
                     if filtered.len() == 0 {
                         continue
                     }

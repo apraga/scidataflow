@@ -637,11 +637,11 @@ impl Project {
     pub async fn pull(&mut self, overwrite: bool, url: bool, all: bool, local: &Option<PathBuf>) -> Result<()> {
         let path_context = self.path_context();
         if all {
-            self.data.pull_urls(&path_context, overwrite).await?;
+            self.data.pull_urls(&path_context, overwrite, local).await?;
             return self.data.pull(&path_context, overwrite, local).await;
         }
         if url {
-            return self.data.pull_urls(&path_context, overwrite).await;
+            return self.data.pull_urls(&path_context, overwrite, local).await;
         }
         self.data.pull(&path_context, overwrite, local).await
     }
